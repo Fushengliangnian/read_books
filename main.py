@@ -4,8 +4,10 @@
 # @Author  : lidong@immusician.com
 # @Site    :
 # @File    : main.py
-from base_server.server import app
+from common.server import app
+from routers import routers
 
 
 if __name__ == '__main__':
-    app.run()
+    # app.add_route(BaseAsyncHandler.as_view(), "/")
+    app.run(debug=True)

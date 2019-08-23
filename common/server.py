@@ -8,10 +8,13 @@
 import asyncio
 import gzip
 
-from basictracer import BasicTracer
+# from basictracer import BasicTracer
 from sanic import Sanic
 from sanic.exceptions import RequestTimeout, NotFound, Forbidden, InvalidUsage
 from sanic.response import json as Json, HTTPResponse
+from schematics.exceptions import ValidationError, ConversionError, DataError
+
+from common.exceptions import CustomExceptionHandler, BadRequest
 
 
 DEFAULT_MIME_TYPES = frozenset([
@@ -20,19 +23,19 @@ DEFAULT_MIME_TYPES = frozenset([
     'application/javascript'])
 
 
-app = Sanic(__name__, error_handler=CustomHandler())
+app = Sanic(__name__, error_handler=CustomExceptionHandler())
 
 
 @app.listener('before_server_start')
 async def before_server_start(app, loop):
     queue = asyncio.Queue()
     app.queue = queue
-    loop.create_task(consume(queue, app))
-    loop.create_task(service_watcher(app, loop))
-    loop.create_task(db_init(app, loop))
+    # loop.create_task(consume(queue, app))
+    # loop.create_task(service_watcher(app, loop))
+    # loop.create_task(db_init(app, loop))
     # reporter = AioReporter(queue=queue)
-    tracer = BasicTracer(recorder=reporter)
-    tracer.register_required_propagators()
+    # tracer = BasicTracer(recorder=reporter)
+    # tracer.register_required_propagators()
     # opentracing.tracer = tracer
     # app.db = await ConnectionPool(loop=loop).init(app.config['DB_CONFIG'])
     # app.redis = await RedisConnectionPool(loop=loop).init(app.config['REDIS_CONFIG'])
@@ -46,11 +49,11 @@ async def before_server_start(app, loop):
     #     app.services[name].add(s[0])
 
 
-@app.listener('after_server_start')
-async def after_server_start(app, loop):
-    service = ServiceManager(app.name, loop=loop, host=app.config['CONSUL_AGENT_HOST'])
-    await service.register_service(port=app.config['PORT'])
-    app.service = service
+# @app.listener('after_server_start')
+# async def after_server_start(app, loop):
+#     service = ServiceManager(app.name, loop=loop, host=app.config['CONSUL_AGENT_HOST'])
+#     await service.register_service(port=app.config['PORT'])
+#     app.service = service
 
 
 @app.listener('before_server_stop')
@@ -59,46 +62,46 @@ async def before_server_stop(app, loop):
     await app.queue.join()
 
 
-@app.middleware('request')
-async def cros(request):
-    # request['start_time'] = time.time()
-    config = request.app.config
-    if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': config['ACCESS_CONTROL_ALLOW_ORIGIN'],
-            'Access-Control-Allow-Headers': config['ACCESS_CONTROL_ALLOW_HEADERS'],
-            'Access-Control-Allow-Methods': config['ACCESS_CONTROL_ALLOW_METHODS']
-        }
-        return Json({'error': 0}, headers=headers)
-
-    span = before_request(request)
-    request['span'] = span
-
-    content_type = request.headers.get("content-type", "unknown")
-    if request.method == 'POST' or request.method == 'PUT':
-        if "application/json" in content_type:
-            try:
-                request['data'] = request.json
-            except InvalidUsage as e:
-                raise BadRequest(error=None, message=str(e))
-
-        elif "application/x-www-form-urlencoded" or 'multipart/form-data' in content_type:
-            request['data'] = {k: v[0] for k, v in request.form.items()}
-        else:
-            print('content_type_error:{}'.format(content_type))
-    else:
-        if request.args:
-            request["data"] = {k: v[0] for k, v in request.args.items()}
-
-    _consume = route_specs[request.app.router.get(request)[0]].consumes
-    try:
-        request['data'] = valid_consume(_consume, request.get("data", {}))
-    except ValidationError as e:
-        raise BadRequest(error=None, message=str(e))
-    except ConversionError as e:
-        raise BadRequest(error=None, message=str(e))
-    except DataError as e:
-        raise BadRequest(error=None, message=str(e))
+# @app.middleware('request')
+# async def cros(request):
+#     # request['start_time'] = time.time()
+#     config = request.app.config
+#     if request.method == 'OPTIONS':
+#         headers = {
+#             'Access-Control-Allow-Origin': config['ACCESS_CONTROL_ALLOW_ORIGIN'],
+#             'Access-Control-Allow-Headers': config['ACCESS_CONTROL_ALLOW_HEADERS'],
+#             'Access-Control-Allow-Methods': config['ACCESS_CONTROL_ALLOW_METHODS']
+#         }
+#         return Json({'error': 0}, headers=headers)
+#
+#     # span = before_request(request)
+#     # request['span'] = span
+#
+#     content_type = request.headers.get("content-type", "unknown")
+#     if request.method == 'POST' or request.method == 'PUT':
+#         if "application/json" in content_type:
+#             try:
+#                 request['data'] = request.json
+#             except InvalidUsage as e:
+#                 raise BadRequest(error=None, message=str(e))
+#
+#         elif "application/x-www-form-urlencoded" or 'multipart/form-data' in content_type:
+#             request['data'] = {k: v[0] for k, v in request.form.items()}
+#         else:
+#             print('content_type_error:{}'.format(content_type))
+#     else:
+#         if request.args:
+#             request["data"] = {k: v[0] for k, v in request.args.items()}
+#
+#     _consume = route_specs[request.app.router.get(request)[0]].consumes
+#     try:
+#         request['data'] = valid_consume(_consume, request.get("data", {}))
+#     except ValidationError as e:
+#         raise BadRequest(error=None, message=str(e))
+#     except ConversionError as e:
+#         raise BadRequest(error=None, message=str(e))
+#     except DataError as e:
+#         raise BadRequest(error=None, message=str(e))
 
 
 @app.middleware('response')
@@ -125,9 +128,9 @@ async def cors_res(request, response):
     if span:
         span.set_tag('component', request.app.name)
         span.finish()
-    response.headers["Access-Control-Allow-Origin"] = config['ACCESS_CONTROL_ALLOW_ORIGIN']
-    response.headers["Access-Control-Allow-Headers"] = config['ACCESS_CONTROL_ALLOW_HEADERS']
-    response.headers["Access-Control-Allow-Methods"] = config['ACCESS_CONTROL_ALLOW_METHODS']
+    # response.headers["Access-Control-Allow-Origin"] = config['ACCESS_CONTROL_ALLOW_ORIGIN']
+    # response.headers["Access-Control-Allow-Headers"] = config['ACCESS_CONTROL_ALLOW_HEADERS']
+    # response.headers["Access-Control-Allow-Methods"] = config['ACCESS_CONTROL_ALLOW_METHODS']
 
     # gzip
     accept_encoding = request.headers.get('Accept-Encoding', '')
