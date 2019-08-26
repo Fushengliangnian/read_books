@@ -5,15 +5,9 @@
 # @Site    :
 # @File    : routers.py
 from common.server import app
-from common.views import BaseAsyncHandler
-from common.utils import add_router
+from common.handler import BaseAsyncHandler
 
-
-@app.route("/demo")
-def demo(request):
-    print("ee")
-    return {}
-
+add_router = app.add_route
 
 routers = [
     # restful class api
@@ -21,6 +15,6 @@ routers = [
 ]
 
 routers += [
-    # all method function api
-    add_router("/home", BaseAsyncHandler.home),
+    # all method class function api
+    # add_router("/home", BaseAsyncHandler().home),
 ]

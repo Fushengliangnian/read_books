@@ -9,5 +9,4 @@ from routers import routers
 
 
 if __name__ == '__main__':
-    # app.add_route(BaseAsyncHandler.as_view(), "/")
     app.run(debug=True)
